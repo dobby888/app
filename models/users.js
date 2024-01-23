@@ -1,5 +1,6 @@
 const Sequelize = require("sequelize");
 const sequelize = require("../util/database");
+const path = require("path");
 
 const User = sequelize.define("user", {
   id: {

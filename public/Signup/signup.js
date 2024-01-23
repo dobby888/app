@@ -7,7 +7,7 @@ function signup(e) {
     email: form.get("email"),
     password: form.get("password"),
   };
-  console.log("sign up details are:", signupDetails);
+  console.log("sign up details are these:", signupDetails);
   axios
     .post("http://localhost:3000/user/signup", signupDetails)
     .then((response) => {

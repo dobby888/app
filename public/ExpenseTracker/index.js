@@ -8,7 +8,7 @@ function addNewExpense(e) {
     category: form.get("category"),
   };
   const token = localStorage.getItem("token");
-  console.log(token);
+  console.log("token:", token);
   axios
     .post("http://localhost:3000/user/addexpense", expenseDetails, {
       headers: { Authorization: token },

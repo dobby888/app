@@ -6,7 +6,7 @@ const authenticate = (req, res, next) => {
   try {
     const token = req.header("authorization");
 
-    console.log(token);
+    console.log("token:", token);
 
     const userid = Number(jwt.verify(token, process.env.TOKEN_SECRET));
 

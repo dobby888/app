@@ -12,7 +12,7 @@ const addexpense = (req, res) => {
   req.user
     .createExpense({ expenseamount, description, category })
     .then((expense) => {
-      console.log("Expenses added are:", req.body);
+      console.log("Expenses added are these:", req.body);
       return res.status(201).json({ expense, success: true });
     })
     .catch((err) => {

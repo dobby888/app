@@ -44,7 +44,7 @@ const login = (req, res) => {
     if (user.length > 0) {
       bcrypt.compare(password, user[0].password, function (err, response) {
         if (err) {
-          console.log(err);
+          console.log("error while generating password:", err);
           return res.json({ success: false, message: "Something went wrong" });
         }
         if (response) {

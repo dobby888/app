@@ -1,6 +1,5 @@
 const Sequelize = require("sequelize");
 const sequelize = require("../util/database");
-const path = require("path");
 
 const Expense = sequelize.define("expenses", {
   id: {
