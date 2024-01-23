@@ -49,7 +49,6 @@ const login = (req, res) => {
         }
         if (response) {
           console.log(JSON.stringify(user));
-          console.log("user is logged in");
           const jwttoken = generateAccessToken(user[0].id);
           res.json({
             token: jwttoken,

@@ -7,7 +7,6 @@ function login(e) {
     email: form.get("email"),
     password: form.get("password"),
   };
-  console.log("------------------------------");
   console.log("login details are:", loginDetails);
   axios
     .post("http://localhost:3000/user/login", loginDetails)

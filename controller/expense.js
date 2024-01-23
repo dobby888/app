@@ -35,7 +35,6 @@ const deleteexpense = (req, res) => {
   const expenseid = req.params.expenseid;
   Expense.destroy({ where: { id: expenseid } })
     .then(() => {
-      console.log(expenseid, ":this expense is deleted");
       return res
         .status(204)
         .json({ success: true, message: "Deleted Successfuly" });

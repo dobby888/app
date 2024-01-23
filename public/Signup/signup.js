@@ -7,7 +7,7 @@ function signup(e) {
     email: form.get("email"),
     password: form.get("password"),
   };
-  console.log(signupDetails);
+  console.log("sign up details are:", signupDetails);
   axios
     .post("http://localhost:3000/user/signup", signupDetails)
     .then((response) => {
@@ -21,4 +21,3 @@ function signup(e) {
       document.body.innerHTML += `<div style="color:red;">${err} <div>`;
     });
 }
- 
