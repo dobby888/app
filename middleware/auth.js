@@ -13,9 +13,8 @@ const authenticate = (req, res, next) => {
     User.findByPk(userid)
       .then((user) => {
         console.log(JSON.stringify(user));
-
         req.user = user;
-
+        console.log(user.name, user.email, user.password);
         next();
       })
       .catch((err) => {

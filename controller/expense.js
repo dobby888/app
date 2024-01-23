@@ -12,6 +12,7 @@ const addexpense = (req, res) => {
   req.user
     .createExpense({ expenseamount, description, category })
     .then((expense) => {
+      console.log("Expenses added are:", req.body);
       return res.status(201).json({ expense, success: true });
     })
     .catch((err) => {
@@ -34,6 +35,7 @@ const deleteexpense = (req, res) => {
   const expenseid = req.params.expenseid;
   Expense.destroy({ where: { id: expenseid } })
     .then(() => {
+      console.log(expenseid, ":this expense is deleted");
       return res
         .status(204)
         .json({ success: true, message: "Deleted Successfuly" });

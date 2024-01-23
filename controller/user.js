@@ -19,6 +19,7 @@ const signup = (req, res) => {
       }
       User.create({ name, email, password: hash })
         .then(() => {
+          console.log("a new user is created:", req.body);
           res.status(201).json({ message: "Successfuly create new user" });
         })
         .catch((err) => {
@@ -48,6 +49,7 @@ const login = (req, res) => {
         }
         if (response) {
           console.log(JSON.stringify(user));
+          console.log("user is logged in");
           const jwttoken = generateAccessToken(user[0].id);
           res.json({
             token: jwttoken,
