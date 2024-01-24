@@ -1,3 +1,5 @@
+// const Razorpay = require("razorpay");
+
 function addNewExpense(e) {
   e.preventDefault();
   const form = new FormData(e.target);
@@ -77,13 +79,35 @@ function showError(err) {
   document.body.innerHTML += `<div style="color:red;"> ${err}</div>`;
 }
 
-function removeExpensefromUI(expenseid) {
-  const expenseElemId = `expense-${expenseid}`;
-  const expenseElement = document.getElementById(expenseElemId);
+document.getElementById("rzp-button1").onclick = async function (e) {
+  const token = localStorage.getItem("token");
+  const response = await axios.get(
+    "http://localhost:3000/purchase/premiummembership",
+    { headers: { Authorization: token } }
+  );
+  console.log(response);
+  var options = {
+    key: response.data.key_id, // Enter the Key ID generated from the Dashboard
+    order_id: response.data.order.id, // For one time payment
+    // This handler function will handle the success payment
+    handler: async function (response) {
+      await axios.post(
+        "http://localhost:3000/purchase/updatetransactionstatus",
+        {
+          order_id: options.order_id,
+          payment_id: response.razorpay_payment_id,
+        },
+        { headers: { Authorization: token } }
+      );
+      alert("You are a premium user now");
+    },
+  };
+  const rzp1 = new Razorpay(options);
+  rzp1.open();
+  e.preventDefault();
 
-  if (expenseElement) {
-    expenseElement.remove();
-  } else {
-    console.error(`Element with ID ${expenseElemId} not found.`);
-  }
-}
+  rzp1.on("payment.failed", function (response) {
+    console.log(response);
+    alert("something went wrong during the payment");
+  });
+};

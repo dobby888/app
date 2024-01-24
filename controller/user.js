@@ -72,6 +72,7 @@ const login = (req, res) => {
 };
 
 module.exports = {
+  generateAccessToken,
   getsignup,
   signup,
   getlogin,

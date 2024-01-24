@@ -98,7 +98,7 @@ body {
   padding: 20px;
 }
 
-#buypremium {
+#rzp-button1 {
   display: block;
   margin-top: 20px;
   margin-left: auto;
@@ -111,6 +111,6 @@ body {
   border-radius: 24px;
 }
 
-#buyPremiumButton:hover {
+#rzp-button1:hover {
   background-color: red;
 }
