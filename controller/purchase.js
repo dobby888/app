@@ -46,6 +46,7 @@ const updateTransactionStatus = async (req, res) => {
     const promise1 = order.update({
       paymentid: payment_id,
       status: "SUCCESSFUL",
+      ispremiumuser: true,
     });
 
     const promise2 = req.user.update({ ispremiumuser: true });
