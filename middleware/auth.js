@@ -1,7 +1,5 @@
 const jwt = require("jsonwebtoken");
-
 const User = require("../models/users");
-
 const authenticate = (req, res, next) => {
   try {
     const token = req.header("authorization");
@@ -21,13 +19,10 @@ const authenticate = (req, res, next) => {
       });
   } catch (err) {
     console.log(err);
-
     return res.status(401).json({ success: false });
-
     // err
   }
 };
-
 module.exports = {
   authenticate,
 };

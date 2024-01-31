@@ -12,12 +12,12 @@ function signup(e) {
     .post("http://localhost:3000/user/signup", signupDetails)
     .then((response) => {
       if (response.status === 201) {
-        window.location.href = "/user/addexpense"; // change the page on successful login
+        window.location.href = "/user/login"; // change the page on successful login
       } else {
         throw new Error("Failed to login");
       }
     })
     .catch((err) => {
-      document.body.innerHTML += `<div style="color:red;">${err} <div>`;
+      document.body.innerHTML += `<div style="color:yellow;">${err} <div>`;
     });
 }

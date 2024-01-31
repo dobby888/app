@@ -1,12 +1,10 @@
 const Expense = require("../models/expenses");
 const path = require("path");
-
 const getaddexpenses = (req, res, next) => {
   res.sendFile(
     path.join(__dirname, "..", "views", "ExpenseTracker", "index.html")
   );
 };
-
 const addexpense = (req, res) => {
   const { expenseamount, description, category } = req.body;
   req.user
@@ -19,7 +17,6 @@ const addexpense = (req, res) => {
       return res.status(403).json({ success: false, error: err });
     });
 };
-
 const getexpenses = (req, res) => {
   req.user
     .getExpenses()
@@ -30,7 +27,6 @@ const getexpenses = (req, res) => {
       return res.status(402).json({ error: err, success: false });
     });
 };
-
 const deleteexpense = (req, res) => {
   const expenseid = req.params.expenseid;
   Expense.destroy({ where: { id: expenseid } })
@@ -44,7 +40,6 @@ const deleteexpense = (req, res) => {
       return res.status(403).json({ success: true, message: "Failed" });
     });
 };
-
 module.exports = {
   getaddexpenses,
   deleteexpense,

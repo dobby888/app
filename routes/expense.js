@@ -1,8 +1,7 @@
 const express = require("express");
-const userController = require("../controller/user");
+
 const expenseController = require("../controller/expense");
-const path = require("path");
-const authenticatemiddleware = require("../middleware/auth");
+const userauthentication = require("../middleware/auth");
 
 const router = express.Router();
 
@@ -10,19 +9,19 @@ router.get("/addexpense", expenseController.getaddexpenses);
 
 router.post(
   "/addexpense",
-  authenticatemiddleware.authenticate,
+  userauthentication.authenticate,
   expenseController.addexpense
 );
 
 router.get(
   "/getexpenses",
-  authenticatemiddleware.authenticate,
+  userauthentication.authenticate,
   expenseController.getexpenses
 );
 
 router.delete(
   "/deleteexpense/:expenseid",
-  authenticatemiddleware.authenticate,
+  userauthentication.authenticate,
   expenseController.deleteexpense
 );
 

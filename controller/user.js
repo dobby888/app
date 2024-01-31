@@ -32,46 +32,38 @@ const getlogin = (req, res, next) => {
 function generateAccessToken(id) {
   return jwt.sign(id, process.env.TOKEN_SECRET);
 }
-const login = async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    if (isstringinvalid(email) || isstringinvalid(password)) {
-      return res
-        .status(400)
-        .json({ message: "EMail idor password is missing ", success: false });
-    }
-    console.log(password);
-    const user = await User.findAll({ where: { email } });
+const login = (req, res) => {
+  const { email, password } = req.body;
+  console.log(password);
+  User.findAll({ where: { email } }).then((user) => {
     if (user.length > 0) {
-      bcrypt.compare(password, user[0].password, (err, result) => {
+      bcrypt.compare(password, user[0].password, function (err, response) {
         if (err) {
-          throw new Error("Something went wrong");
+          console.log("error while generating password:", err);
+          return res.json({ success: false, message: "Something went wrong" });
         }
-        if (result === true) {
-          return res.status(200).json({
+        if (response) {
+          console.log(JSON.stringify(user));
+          const jwttoken = generateAccessToken(user[0].id);
+          res.json({
+            token: jwttoken,
             success: true,
-            message: "User logged in successfully",
-            token: generateAccessToken(
-              user[0].id,
-              user[0].name,
-              user[0].ispremiumuser
-            ),
+            message: "Successfully Logged In",
           });
+          // Send JWT
         } else {
+          // response is OutgoingMessage object that server response http request
           return res
-            .status(400)
-            .json({ success: false, message: "Password is incorrect" });
+            .status(401)
+            .json({ success: false, message: "passwords do not match" });
         }
       });
     } else {
-      console.log(err);
       return res
         .status(404)
-        .json({ success: false, message: "User Doesnot exitst" });
+        .json({ success: false, message: "passwords do not match" });
     }
-  } catch (err) {
-    res.status(500).json({ message: err, success: false });
-  }
+  });
 };
 
 module.exports = {
