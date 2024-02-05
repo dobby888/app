@@ -323,46 +323,26 @@ app.post("/premium/updatetransactionstatus", authenticate, async (req, res) => {
 
 app.get("/premium/leaderboard", authenticate, async (req, res) => {
   try {
-    const users = await User.findAll();
-    const expenses = await Expense.findAll(); //expenses would be an array with all the expenses of a single user, user id and expense category
-    const userAggExp = {};
-    expenses.forEach((expense) => {
-      if (userAggExp[expense.userId]) {
-        userAggExp[expense.userId] += expense.expenseamount;
-      } else {
-        userAggExp[expense.userId] = expense.expenseamount;
-      }
+    const leaderboardofusers = await User.findAll({
+      attributes: [
+        "id",
+        "name",
+        [
+          sequelize.fn("sum", sequelize.col("expenses.expenseamount")),
+          "total_cost",
+        ],
+      ],
+      include: [
+        {
+          model: Expense,
+          attributes: [],
+        },
+      ],
+      group: ["user.id"],
+      order: [["total_cost", "DESC"]], // Order by total_cost in descending order
     });
-    var userLeaderBoardDetails = [];
-    users.forEach((user) => {
-      userLeaderBoardDetails.push({
-        name: user.name,
-        total_cost: userAggExp[user.id] || 0,
-      });
-    });
-    userLeaderBoardDetails.sort((a, b) => b.total_cost - a.total_cost);
-    console.log("users total expense: ", userLeaderBoardDetails);
-    res.status(200).json(userLeaderBoardDetails);
-    // const leaderboardofusers = await User.findAll({
-    //   attributes: [
-    //     "id",
-    //     "name",
-    //     [
-    //       sequelize.fn("sum", sequelize.col("expenses.expenseamount")),
-    //       "total_cost",
-    //     ],
-    //   ],
-    //   include: [
-    //     {
-    //       model: Expense,
-    //       attributes: [],
-    //     },
-    //   ],
-    //   group: ["user.id"],
-    //   order: [["total_cost", "DESC"]], // Order by total_cost in descending order
-    // });
 
-    // res.status(200).json(leaderboardofusers);
+    res.status(200).json(leaderboardofusers);
   } catch (err) {
     console.log("error while getting the leader board: ", err);
     res.status(500).json(err);
