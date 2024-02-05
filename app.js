@@ -218,12 +218,24 @@ app.get("/expense/addexpense", (req, res, next) => {
 app.post("/expense/addexpense", authenticate, (req, res) => {
   const { expenseamount, description, category } = req.body;
   req.user
-    .createExpense({ expenseamount, description, category })
+    .createExpense({
+      expenseamount,
+      description,
+      category,
+      userId: req.user.id,
+    })
     .then((expense) => {
-      req.user.increment("total_expenses", { by: expenseamount });
-
+      const total_expenses =
+        Number(req.user.total_expenses) + Number(expenseamount);
       console.log("Expenses added are these:", req.body);
-      return res.status(201).json({ expense, success: true });
+      User.update(
+        { total_expenses: total_expenses },
+        {
+          where: { id: req.user.id },
+        }
+      ).then(async () => {
+        return res.status(201).json({ expense, success: true });
+      });
     })
     .catch((err) => {
       return res.status(403).json({ success: false, error: err });
@@ -326,7 +338,6 @@ app.post("/premium/updatetransactionstatus", authenticate, async (req, res) => {
 app.get("/premium/leaderboard", authenticate, async (req, res) => {
   try {
     const leaderboardofusers = await User.findAll({
-      attributes: ["id", "name", "total_expenses"],
       order: [["total_expenses", "DESC"]], // Order by total_cost in descending order
     });
 
