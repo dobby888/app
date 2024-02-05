@@ -195,7 +195,7 @@ function displayLeaderboard(leaderboardData) {
   leaderboardContainer.innerHTML = "";
   leaderboardData.forEach((user) => {
     const userElement = document.createElement("div");
-    userElement.innerHTML = `<p>${user.name}-Total Expenses: ${user.total_cost}</p>`;
+    userElement.innerHTML = `<p>${user.name}-Total Expenses: ${user.total_expenses}</p>`;
     leaderboardContainer.appendChild(userElement);
   });
 }

@@ -220,6 +220,8 @@ app.post("/expense/addexpense", authenticate, (req, res) => {
   req.user
     .createExpense({ expenseamount, description, category })
     .then((expense) => {
+      req.user.increment("total_expenses", { by: expenseamount });
+
       console.log("Expenses added are these:", req.body);
       return res.status(201).json({ expense, success: true });
     })
@@ -324,22 +326,8 @@ app.post("/premium/updatetransactionstatus", authenticate, async (req, res) => {
 app.get("/premium/leaderboard", authenticate, async (req, res) => {
   try {
     const leaderboardofusers = await User.findAll({
-      attributes: [
-        "id",
-        "name",
-        [
-          sequelize.fn("sum", sequelize.col("expenses.expenseamount")),
-          "total_cost",
-        ],
-      ],
-      include: [
-        {
-          model: Expense,
-          attributes: [],
-        },
-      ],
-      group: ["user.id"],
-      order: [["total_cost", "DESC"]], // Order by total_cost in descending order
+      attributes: ["id", "name", "total_expenses"],
+      order: [["total_expenses", "DESC"]], // Order by total_cost in descending order
     });
 
     res.status(200).json(leaderboardofusers);
