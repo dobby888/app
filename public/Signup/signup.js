@@ -12,7 +12,8 @@ function signup(e) {
     .post("http://localhost:3000/user/signup", signupDetails)
     .then((response) => {
       if (response.status === 201) {
-        window.location.href = "/user/login"; // change the page on successful login
+        alert("a new user is created");
+        window.location.href = "/user/login";
       } else {
         throw new Error("Failed to login");
       }

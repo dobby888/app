@@ -10,7 +10,10 @@ const bcrypt = require("bcrypt");
 const userController = require("./controller/user");
 const app = express();
 const dotenv = require("dotenv");
+const userRoutes = require("./routes/user");
+const expenseRoutes = require("./routes/expense");
 const purchaseRoutes = require("./routes/purchase");
+const premiumRoutes = require("./routes/premiumFeature");
 const Razorpay = require("razorpay");
 
 // get config vars
@@ -20,14 +23,19 @@ app.use(cors());
 app.use(express.json()); //this is for handling jsons
 app.use(express.static(path.join(__dirname, "public")));
 
+// app.use("/user", userRoutes);
+// app.use("/expense", expenseRoutes);
+// app.use("/premium", purchaseRoutes);
+// app.use("/premium", premiumRoutes);
+
 const authenticate = (req, res, next) => {
   try {
     const token = req.header("authorization");
 
     console.log("token:", token);
 
-    const userid = Number(jwt.verify(token, process.env.TOKEN_SECRET));
-
+    const decoded = jwt.verify(token, process.env.TOKEN_SECRET);
+    const userid = Number(decoded.userId);
     User.findByPk(userid)
       .then((user) => {
         console.log(JSON.stringify(user));
@@ -44,8 +52,11 @@ const authenticate = (req, res, next) => {
   }
 };
 
-function generateAccessToken(id) {
-  return jwt.sign(id, process.env.TOKEN_SECRET);
+function generateAccessToken(id, name, ispremiumuser) {
+  return jwt.sign(
+    { userId: id, name: name, ispremiumuser: ispremiumuser },
+    process.env.TOKEN_SECRET
+  );
 }
 app.get("/user/signup", (req, res, next) => {
   res.send(`
@@ -60,7 +71,7 @@ app.get("/user/signup", (req, res, next) => {
 </head>
 <body>
     <h1>Sign Up:</h1>
-    <form onsubmit="signup(event)" action="/user/signup" method="POST">
+    <form onsubmit="signup(event)">
         <label for="name">Name:</label>
         <input type="text" name="name" required placeholder="Enter your name...."><br>
 
@@ -111,7 +122,7 @@ app.get("/user/login", (req, res, next) => {
 </head>
 <body>
     <h1>Login:</h1>
-    <form onsubmit="login(event)" action="/user/login" method="POST">
+    <form onsubmit="login(event)">
         <label for="email">Email:</label>
         <input type="email" name="email" required><br>
         <label for="password">Password:</label>
@@ -137,8 +148,13 @@ app.post("/user/login", (req, res) => {
         }
         if (response) {
           console.log(JSON.stringify(user));
-          const jwttoken = generateAccessToken(user[0].id);
-          res.json({
+          const jwttoken = generateAccessToken(
+            user[0].id,
+            user[0].name,
+            user[0].ispremiumuser
+          );
+          // console.log(generateAccessToken(user[0]));
+          res.status(200).json({
             token: jwttoken,
             user: user[0],
             success: true,
@@ -159,7 +175,7 @@ app.post("/user/login", (req, res) => {
     }
   });
 });
-app.get("/user/addexpense", (req, res, next) => {
+app.get("/expense/addexpense", (req, res, next) => {
   res.send(`<!DOCTYPE html>
   <html lang="en">
   <head>
@@ -171,9 +187,8 @@ app.get("/user/addexpense", (req, res, next) => {
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
   </head>
   <body>
-      <h1>Expense Tracker:</h1>
-
-      <form onsubmit="addNewExpense(event)" action="/user/addexpense" method="POST">
+      <h1 id="loginName"></h1>
+      <form onsubmit="addNewExpense(event)">
           <label for="expenseamount">Expenseamount:</label>
           <input type="number" id="expenseamount" name="expenseamount" required><br>
 
@@ -188,6 +203,9 @@ app.get("/user/addexpense", (req, res, next) => {
           </select><br>
           <button type="submit">Add Expense</button>
       </form>
+      <div id='premiumMessage'></div>
+      <div id='leaderBoardButton'></div>
+      <div id='leaderBoard'></div>
       <button id="rzp-button1">Buy Premium  Membership</button>
       <ul id='listOfExpenses'>
           <h2>Expense List:</h2>
@@ -197,7 +215,7 @@ app.get("/user/addexpense", (req, res, next) => {
   </body>
   </html>  `);
 });
-app.post("/user/addexpense", authenticate, (req, res) => {
+app.post("/expense/addexpense", authenticate, (req, res) => {
   const { expenseamount, description, category } = req.body;
   req.user
     .createExpense({ expenseamount, description, category })
@@ -209,7 +227,7 @@ app.post("/user/addexpense", authenticate, (req, res) => {
       return res.status(403).json({ success: false, error: err });
     });
 });
-app.get("/user/getexpenses", authenticate, (req, res) => {
+app.get("/expense/getexpenses", authenticate, (req, res) => {
   req.user
     .getExpenses()
     .then((expenses) => {
@@ -219,7 +237,7 @@ app.get("/user/getexpenses", authenticate, (req, res) => {
       return res.status(402).json({ error: err, success: false });
     });
 });
-app.delete("/user/deleteexpense/:expenseid", authenticate, (req, res) => {
+app.delete("/expense/deleteexpense/:expenseid", authenticate, (req, res) => {
   const expenseid = req.params.expenseid;
   Expense.destroy({ where: { id: expenseid } })
     .then(() => {
@@ -233,7 +251,7 @@ app.delete("/user/deleteexpense/:expenseid", authenticate, (req, res) => {
     });
 });
 
-app.get("/purchase/premiummembership", authenticate, async (req, res) => {
+app.get("/premium/premiummembership", authenticate, async (req, res) => {
   try {
     var rzp = new Razorpay({
       key_id: process.env.RAZORPAY_KEY_ID,
@@ -264,68 +282,89 @@ app.get("/purchase/premiummembership", authenticate, async (req, res) => {
   }
 });
 
-app.post(
-  "/purchase/updatetransactionstatus",
-  authenticate,
-  async (req, res) => {
-    try {
-      const userId = req.user.id;
-      console.log("........", req.body);
-      const { payment_id, order_id } = req.body;
-
-      const order = await Order.findOne({ where: { orderid: order_id } }); //2
-
-      const promise1 = order.update({
-        paymentid: payment_id,
-        status: "SUCCESSFUL",
-        ispremiumuser: true,
-      });
-
-      const promise2 = req.user.update({ ispremiumuser: true });
-
-      Promise.all([promise1, promise2])
-        .then(() => {
-          return res.status(202).json({
-            sucess: true,
-            message: "Transaction Successful",
-            token: userController.generateAccessToken(userId, undefined, true),
-          });
-        })
-        .catch((error) => {
-          throw new Error(error);
-        });
-    } catch (err) {
-      console.log(err);
-
-      res.status(403).json({ errpr: err, message: "Sometghing went wrong" });
-    }
-  }
-);
-
-app.get("/user/leaderboard", async (req, res) => {
+app.post("/premium/updatetransactionstatus", authenticate, async (req, res) => {
   try {
-    const leaderboardofusers = await User.findAll({
-      attributes: [
-        "id",
-        "name",
-        [
-          sequelize.fn("sum", sequelize.col("expenses.expenseamount")),
-          "total_cost",
-        ],
-      ],
-      include: [
-        {
-          model: Expense,
-          attributes: [],
-        },
-      ],
-      group: ["user.id"],
-      order: [["total_cost", "DESC"]],
+    const userId = req.user.id;
+    console.log("........", req.body);
+    const { payment_id, order_id } = req.body;
+
+    const order = await Order.findOne({ where: { orderid: order_id } }); //2
+
+    const promise1 = order.update({
+      paymentid: payment_id,
+      status: "SUCCESSFUL",
+      ispremiumuser: true,
     });
 
-    res.status(200).json(leaderboardofusers);
+    const promise2 = req.user.update({ ispremiumuser: true });
+
+    Promise.all([promise1, promise2])
+      .then(() => {
+        const newToken = userController.generateAccessToken(
+          userId,
+          undefined,
+          true
+        );
+        return res.status(202).json({
+          sucess: true,
+          message: "Transaction Successful",
+          token: newToken,
+        });
+      })
+      .catch((error) => {
+        throw new Error(error);
+      });
   } catch (err) {
     console.log(err);
+
+    res.status(403).json({ errpr: err, message: "Sometghing went wrong" });
+  }
+});
+
+app.get("/premium/leaderboard", authenticate, async (req, res) => {
+  try {
+    const users = await User.findAll();
+    const expenses = await Expense.findAll(); //expenses would be an array with all the expenses of a single user, user id and expense category
+    const userAggExp = {};
+    expenses.forEach((expense) => {
+      if (userAggExp[expense.userId]) {
+        userAggExp[expense.userId] += expense.expenseamount;
+      } else {
+        userAggExp[expense.userId] = expense.expenseamount;
+      }
+    });
+    var userLeaderBoardDetails = [];
+    users.forEach((user) => {
+      userLeaderBoardDetails.push({
+        name: user.name,
+        total_cost: userAggExp[user.id] || 0,
+      });
+    });
+    userLeaderBoardDetails.sort((a, b) => b.total_cost - a.total_cost);
+    console.log("users total expense: ", userLeaderBoardDetails);
+    res.status(200).json(userLeaderBoardDetails);
+    // const leaderboardofusers = await User.findAll({
+    //   attributes: [
+    //     "id",
+    //     "name",
+    //     [
+    //       sequelize.fn("sum", sequelize.col("expenses.expenseamount")),
+    //       "total_cost",
+    //     ],
+    //   ],
+    //   include: [
+    //     {
+    //       model: Expense,
+    //       attributes: [],
+    //     },
+    //   ],
+    //   group: ["user.id"],
+    //   order: [["total_cost", "DESC"]], // Order by total_cost in descending order
+    // });
+
+    // res.status(200).json(leaderboardofusers);
+  } catch (err) {
+    console.log("error while getting the leader board: ", err);
     res.status(500).json(err);
   }
 });

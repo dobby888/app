@@ -1,3 +1,5 @@
+// const { use } = require("../../routes/user");
+
 function addNewExpense(e) {
   e.preventDefault();
   const form = new FormData(e.target);
@@ -10,7 +12,7 @@ function addNewExpense(e) {
   const token = localStorage.getItem("token");
   console.log("token:", token);
   axios
-    .post("http://localhost:3000/user/addexpense", expenseDetails, {
+    .post("http://localhost:3000/expense/addexpense", expenseDetails, {
       headers: { Authorization: token },
     })
     .then((response) => {
@@ -22,22 +24,6 @@ function addNewExpense(e) {
     })
     .catch((err) => showError(err));
 }
-window.addEventListener("load", () => {
-  const token = localStorage.getItem("token");
-  axios
-    .get("http://localhost:3000/user/getexpenses", {
-      headers: { Authorization: token },
-    })
-    .then((response) => {
-      if (response.status === 200) {
-        response.data.expenses.forEach((expense) => {
-          addNewExpensetoUI(expense);
-        });
-      } else {
-        throw new Error();
-      }
-    });
-});
 
 function addNewExpensetoUI(expense) {
   const parentElement = document.getElementById("listOfExpenses");
@@ -52,10 +38,11 @@ function addNewExpensetoUI(expense) {
   document.getElementById("expenseamount").value = "";
   document.getElementById("description").value = "";
 }
+
 function deleteExpense(e, expenseid) {
   const token = localStorage.getItem("token");
   axios
-    .delete(`http://localhost:3000/user/deleteexpense/${expenseid}`, {
+    .delete(`http://localhost:3000/expense/deleteexpense/${expenseid}`, {
       headers: { Authorization: token },
     })
     .then((response) => {
@@ -69,38 +56,107 @@ function deleteExpense(e, expenseid) {
       showError(err);
     });
 }
+
+function removeExpensefromUI(expenseid) {
+  const expenseElemId = `expense-${expenseid}`;
+  const expenseElement = document.getElementById(expenseElemId);
+  if (expenseElement) {
+    expenseElement.remove();
+  } else {
+    console.error(`Element with ID ${expenseElemId} not found.`);
+  }
+}
+
 function showError(err) {
   document.body.innerHTML += `<div style="color:blue;"> ${err}</div>`;
 }
 
+function showPremiumMsg() {
+  document.getElementById("rzp-button1").style.display = "none";
+  document.getElementById("premiumMessage").innerHTML =
+    "You are a Premium user now!";
+  document.getElementById(
+    "leaderBoardButton"
+  ).innerHTML += `<button onclick="getLeaderboard()">Leaderboard</button>`;
+}
+
+function parseJwt(token) {
+  var base64Url = token.split(".")[1];
+  var base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+  var jsonPayload = decodeURIComponent(
+    window
+      .atob(base64)
+      .split("")
+      .map(function (c) {
+        return "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2);
+      })
+      .join("")
+  );
+
+  return JSON.parse(jsonPayload);
+}
+
+window.addEventListener("DOMContentLoaded", () => {
+  const token = localStorage.getItem("token");
+  const decodeToken = parseJwt(token);
+  console.log(decodeToken);
+  const ispremiumuser = decodeToken.ispremiumuser;
+  if (ispremiumuser) {
+    showPremiumMsg();
+  }
+  axios
+    .get("http://localhost:3000/expense/getexpenses", {
+      headers: { Authorization: token },
+    })
+    .then((response) => {
+      if (response.status === 200) {
+        const loginNameElement = document.getElementById("loginName");
+        const userDetails = JSON.parse(localStorage.getItem("userDetails"));
+        if (userDetails) {
+          loginNameElement.innerHTML = `${userDetails.name}'s Expense Tracker`;
+        }
+        response.data.expenses.forEach((expense) => {
+          addNewExpensetoUI(expense);
+        });
+      } else {
+        throw new Error();
+      }
+    });
+});
+
 document.getElementById("rzp-button1").onclick = async function (e) {
   const token = localStorage.getItem("token");
   const response = await axios.get(
-    "http://localhost:3000/purchase/premiummembership",
+    "http://localhost:3000/premium/premiummembership",
     { headers: { Authorization: token } }
   );
   console.log(response);
   var options = {
-    key: response.data.key_id, // Enter the Key ID generated from the Dashboard
-    order_id: response.data.order.id, // For one time payment
-    // This handler function will handle the success payment
-    handler: async function (response) {
-      await axios.post(
-        "http://localhost:3000/purchase/updatetransactionstatus",
-        {
-          order_id: options.order_id,
-          payment_id: response.razorpay_payment_id,
-        },
-        { headers: { Authorization: token } }
-      );
-      alert("You are a premium user now");
-      const userDetails = JSON.parse(localStorage.getItem("userDetails"));
-      console.log(userDetails);
-      if (userDetails && userDetails.ispremiumuser) {
-        document.getElementById("rzp-button1").style.display = "none";
-        document.body.innerHTML += `<p>You are a Premium User now!</p>`;
-        // Add a button for Leader Board
-        document.body.innerHTML += `<button onclick="showLeaderBoard()">Leader Board</button>`;
+    key: response.data.key_id,
+    order_id: response.data.order.id,
+    handler: async function (res) {
+      try {
+        const updateTransactionResponse = await axios.post(
+          "http://localhost:3000/premium/updatetransactionstatus",
+          {
+            order_id: options.order_id,
+            payment_id: res.razorpay_payment_id,
+          },
+          { headers: { Authorization: token } }
+        );
+
+        console.log(
+          "response from update transaction",
+          updateTransactionResponse
+        );
+
+        alert("You are a premium user now");
+        showPremiumMsg();
+
+        localStorage.setItem("token", updateTransactionResponse.data.token);
+        console.log("new token:", updateTransactionResponse.data.token);
+      } catch (error) {
+        console.error("Error updating transaction status:", error);
       }
     },
   };
@@ -113,44 +169,33 @@ document.getElementById("rzp-button1").onclick = async function (e) {
     alert("something went wrong during the payment");
   });
 };
-function removeExpensefromUI(expenseid) {
-  const expenseElemId = `expense-${expenseid}`;
-  const expenseElement = document.getElementById(expenseElemId);
-  if (expenseElement) {
-    expenseElement.remove();
-  } else {
-    console.error(`Element with ID ${expenseElemId} not found.`);
-  }
-}
-async function showLeaderBoard() {
-  const token = localStorage.getItem("token");
+
+async function getLeaderboard() {
   try {
-    const response = await axios.get("http://localhost:3000/user/leaderboard", {
-      headers: { Authorization: token },
-    });
+    const token = localStorage.getItem("token");
+    const response = await axios.get(
+      "http://localhost:3000/premium/leaderboard",
+      {
+        headers: { Authorization: token },
+      }
+    );
 
     if (response.status === 200) {
-      displayLeaderBoard(response.data.users);
+      displayLeaderboard(response.data);
     } else {
       throw new Error("Failed to fetch leaderboard");
     }
-  } catch (err) {
-    showError(err);
+  } catch (error) {
+    console.error("Error fetching leaderboard:", error);
   }
 }
 
-function displayLeaderBoard(users) {
-  const leaderBoardElement = document.getElementById("leaderBoard");
-  console.log("leaderBoardElement>>>>>>>>>>>>", leaderBoardElement);
-  if (leaderBoardElement) {
-    leaderBoardElement.innerHTML = "<h2>Leaderboard:</h2>";
-
-    users.forEach((user) => {
-      leaderBoardElement.innerHTML += `
-        <p>${user.name} - Total Expense: ${user.totalExpense || 0}</p>
-      `;
-    });
-  } else {
-    console.error("Element with ID 'leaderBoard' not found.");
-  }
+function displayLeaderboard(leaderboardData) {
+  const leaderboardContainer = document.getElementById("leaderBoard");
+  leaderboardContainer.innerHTML = "";
+  leaderboardData.forEach((user) => {
+    const userElement = document.createElement("div");
+    userElement.innerHTML = `<p>${user.name}-Total Expenses: ${user.total_cost}</p>`;
+    leaderboardContainer.appendChild(userElement);
+  });
 }
