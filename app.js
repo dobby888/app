@@ -10,13 +10,19 @@ const bcrypt = require("bcrypt");
 const userController = require("./controller/user");
 const app = express();
 const dotenv = require("dotenv");
-const userRoutes = require("./routes/user");
-const expenseRoutes = require("./routes/expense");
-const purchaseRoutes = require("./routes/purchase");
-const premiumRoutes = require("./routes/premiumFeature");
+// const userRoutes = require("./routes/user");
+// const expenseRoutes = require("./routes/expense");
+// const purchaseRoutes = require("./routes/purchase");
+// const premiumRoutes = require("./routes/premiumFeature");
 const Razorpay = require("razorpay");
-
+const Sib = require("sib-api-v3-sdk");
+const client = Sib.ApiClient.instance;
+const apiKey = client.authentications["api-key"];
+apiKey.apiKey =
+  "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";
 // get config vars
+const tranEmailApi = new Sib.TransactionalEmailsApi();
+
 dotenv.config();
 app.use(cors());
 // app.use(bodyParser.urlencoded());  ////this is for handling forms
@@ -58,6 +64,7 @@ function generateAccessToken(id, name, ispremiumuser) {
     process.env.TOKEN_SECRET
   );
 }
+
 app.get("/user/signup", (req, res, next) => {
   res.send(`
   <!DOCTYPE html>
@@ -81,13 +88,14 @@ app.get("/user/signup", (req, res, next) => {
         <label for="password">Password:</label>
         <input type="password" name="password" required><br>
         <button type="submit">Signup</button>
-        <a href="/user/login">Existng User?Signup Now</a>
+        <a href="/user/login">Existng User?Login Now</a>
     </form>
     <script src="http://cdnjs.cloudflare.com/ajax/libs/axios/0.21.1/axios.min.js" integrity="sha512-bZS47S7sPOxkjU/4Bt0zrhEtWx0y0CRkhEp8IckzK+ltifIIE9EMIMTuT/mEzoIMewUINruDBIR/jJnbguonqQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script src="/Signup/signup.js" ></script>
 </body>
 </html> `);
 });
+
 app.post("/user/signup", (req, res) => {
   const { name, email, password } = req.body;
   const saltRounds = 10;
@@ -109,6 +117,7 @@ app.post("/user/signup", (req, res) => {
     });
   });
 });
+
 app.get("/user/login", (req, res, next) => {
   res.send(`
   <!DOCTYPE html>
@@ -130,12 +139,13 @@ app.get("/user/login", (req, res, next) => {
         <button type="submit">Login</button>
         <a href="/user/signup">New User?Signup Now</a>
     </form>
-
+    <a href='/password/forgotpassword'>Forgot Password?</a>
     <script src="http://cdnjs.cloudflare.com/ajax/libs/axios/0.21.1/axios.min.js" integrity="sha512-bZS47S7sPOxkjU/4Bt0zrhEtWx0y0CRkhEp8IckzK+ltifIIE9EMIMTuT/mEzoIMewUINruDBIR/jJnbguonqQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script src="/Login/login.js" ></script>
 </body>
 </html> `);
 });
+
 app.post("/user/login", (req, res) => {
   const { email, password } = req.body;
   console.log(password);
@@ -174,6 +184,89 @@ app.post("/user/login", (req, res) => {
         .json({ success: false, message: "passwords do not match" });
     }
   });
+});
+
+app.get("/password/forgotpassword", (req, res, next) => {
+  res.send(`
+  <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" type="text/css" href="/styles/styles.css">
+</head>
+<body>
+    <h2>find Your Account</h2>
+    <p>Please enter your email address to search for your account.</p>
+    <form onsubmit='getForgotPassword(event)'>
+        <label for="email">EmailId:</label>
+        <input type="email" id="email" name="email" required><br>
+        <button onclick="cancelForgotPassword(event)">Cancel</button>
+        <button>Get Password</button>
+    </form>
+    <script src="http://cdnjs.cloudflare.com/ajax/libs/axios/0.21.1/axios.min.js" integrity="sha512-bZS47S7sPOxkjU/4Bt0zrhEtWx0y0CRkhEp8IckzK+ltifIIE9EMIMTuT/mEzoIMewUINruDBIR/jJnbguonqQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="/Password/password.js"></script>
+</body>
+</html>
+  `);
+});
+
+app.post("/password/forgotpassword", (req, res, next) => {
+  const { email } = req.body;
+  console.log("email input", email);
+  const sender = {
+    email: "pabbathisreevalli1705@gmail.com",
+  };
+
+  const receivers = [
+    {
+      email: email, // Add the recipient's email address here
+    },
+  ];
+
+  console.log("receivers array: ", receivers);
+  const emailData = {
+    sender,
+    to: receivers,
+    subject: "Reset Password Request", // Add your email subject here
+    htmlContent: `
+      <h3>reset ur password here</h3>
+      <a href='/password/resetpassword'>Link</a>
+    `,
+  };
+
+  // Make the request to Sendinblue API
+  tranEmailApi
+    .sendTransacEmail(emailData)
+    .then((response) => {
+      console.log("Email sent successfully:", response);
+      res
+        .status(200)
+        .json({ success: true, message: "Email sent successfully" });
+    })
+    .catch((error) => {
+      console.log("Error sending email:", error);
+      res.status(500).json({ success: false, error: "Internal server error" });
+    });
+});
+
+app.get("/password/resetpassword", (req, res, next) => {
+  res.send(`
+    <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <h3>Reset your Password</h3><br>
+    <label for="password">New Password:</label>
+    <input type="password" name="password" id="password" required>
+</body>
+</html>
+  `);
 });
 app.get("/expense/addexpense", (req, res, next) => {
   res.send(`<!DOCTYPE html>
@@ -215,6 +308,7 @@ app.get("/expense/addexpense", (req, res, next) => {
   </body>
   </html>  `);
 });
+
 app.post("/expense/addexpense", authenticate, async (req, res) => {
   try {
     const t = await sequelize.transaction();
