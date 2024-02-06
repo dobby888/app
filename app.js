@@ -215,32 +215,51 @@ app.get("/expense/addexpense", (req, res, next) => {
   </body>
   </html>  `);
 });
-app.post("/expense/addexpense", authenticate, (req, res) => {
-  const { expenseamount, description, category } = req.body;
-  req.user
-    .createExpense({
-      expenseamount,
-      description,
-      category,
-      userId: req.user.id,
-    })
-    .then((expense) => {
-      const total_expenses =
-        Number(req.user.total_expenses) + Number(expenseamount);
-      console.log("Expenses added are these:", req.body);
-      User.update(
-        { total_expenses: total_expenses },
+app.post("/expense/addexpense", authenticate, async (req, res) => {
+  try {
+    const t = await sequelize.transaction();
+    const { expenseamount, description, category } = req.body;
+    req.user
+      .createExpense(
         {
-          where: { id: req.user.id },
-        }
-      ).then(async () => {
-        return res.status(201).json({ expense, success: true });
+          expenseamount,
+          description,
+          category,
+          userId: req.user.id,
+        },
+        { transaction: t }
+      )
+      .then((expense) => {
+        const total_expenses =
+          Number(req.user.total_expenses) + Number(expenseamount);
+        console.log("Expenses added are these:", req.body);
+        User.update(
+          { total_expenses: total_expenses },
+          {
+            where: { id: req.user.id },
+            transaction: t,
+          }
+        )
+          .then(async () => {
+            t.commit();
+            return res.status(201).json({ expense, success: true });
+          })
+          .catch(async (err) => {
+            await t.rollback();
+            return res.status(500).json({ success: false, error: err });
+          });
+      })
+      .catch(async (err) => {
+        await t.rollback();
+        return res.status(403).json({ success: false, error: err });
       });
-    })
-    .catch((err) => {
-      return res.status(403).json({ success: false, error: err });
-    });
+  } catch (err) {
+    await t.rollback();
+    console.log(err);
+    res.status(403).json({ success: false, error: err });
+  }
 });
+
 app.get("/expense/getexpenses", authenticate, (req, res) => {
   req.user
     .getExpenses()
@@ -251,19 +270,50 @@ app.get("/expense/getexpenses", authenticate, (req, res) => {
       return res.status(402).json({ error: err, success: false });
     });
 });
-app.delete("/expense/deleteexpense/:expenseid", authenticate, (req, res) => {
-  const expenseid = req.params.expenseid;
-  Expense.destroy({ where: { id: expenseid } })
-    .then(() => {
+
+app.delete(
+  "/expense/deleteexpense/:expenseid",
+  authenticate,
+  async (req, res) => {
+    try {
+      const expenseid = req.params.expenseid;
+      const expense = await Expense.findOne({
+        where: { id: expenseid, userId: req.user.id },
+      });
+
+      if (!expense) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Expense not found" });
+      }
+
+      const deletedAmount = expense.expenseamount;
+      const t = await sequelize.transaction();
+
+      await Expense.destroy({
+        where: { id: expenseid, userId: req.user.id },
+        transaction: t,
+      });
+      const total_expenses =
+        Number(req.user.total_expenses) - Number(deletedAmount);
+
+      await User.update(
+        { total_expenses: total_expenses },
+        { where: { id: req.user.id }, transaction: t }
+      );
+      await t.commit();
+
       return res
         .status(204)
-        .json({ success: true, message: "Deleted Successfuly" });
-    })
-    .catch((err) => {
-      console.log(err);
-      return res.status(403).json({ success: true, message: "Failed" });
-    });
-});
+        .json({ success: true, message: "Deleted successfully" });
+    } catch (err) {
+      console.log("Error while deleting the expense:", err);
+      return res
+        .status(500)
+        .json({ success: false, error: "Internal server error" });
+    }
+  }
+);
 
 app.get("/premium/premiummembership", authenticate, async (req, res) => {
   try {
@@ -338,7 +388,7 @@ app.post("/premium/updatetransactionstatus", authenticate, async (req, res) => {
 app.get("/premium/leaderboard", authenticate, async (req, res) => {
   try {
     const leaderboardofusers = await User.findAll({
-      order: [["total_expenses", "DESC"]], // Order by total_cost in descending order
+      order: [["total_expenses", "DESC"]], // Order by total_expenses in descending order
     });
 
     res.status(200).json(leaderboardofusers);
