@@ -19,8 +19,7 @@ const Razorpay = require("razorpay");
 const Sib = require("sib-api-v3-sdk");
 const client = Sib.ApiClient.instance;
 const apiKey = client.authentications["api-key"];
-apiKey.apiKey =
-  "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";
+apiKey.apiKey = process.env.API_KEY;
 const tranEmailApi = new Sib.TransactionalEmailsApi();
 const { v4: uuidv4 } = require("uuid");
 const { json } = require("sequelize");
