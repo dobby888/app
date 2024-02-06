@@ -5,6 +5,7 @@ const sequelize = require("./util/database");
 const User = require("./models/users");
 const Expense = require("./models/expenses");
 const Order = require("./models/orders");
+const ForgotPasswordRequests = require("./models/forgotPasswordRequests");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const userController = require("./controller/user");
@@ -19,9 +20,10 @@ const Sib = require("sib-api-v3-sdk");
 const client = Sib.ApiClient.instance;
 const apiKey = client.authentications["api-key"];
 apiKey.apiKey =
-  "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";
-// get config vars
+  "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";
 const tranEmailApi = new Sib.TransactionalEmailsApi();
+const { v4: uuidv4 } = require("uuid");
+const { json } = require("sequelize");
 
 dotenv.config();
 app.use(cors());
@@ -212,62 +214,131 @@ app.get("/password/forgotpassword", (req, res, next) => {
   `);
 });
 
-app.post("/password/forgotpassword", (req, res, next) => {
-  const { email } = req.body;
-  console.log("email input", email);
-  const sender = {
-    email: "pabbathisreevalli1705@gmail.com",
-  };
+app.post("/password/forgotpassword", async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ where: { email } });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
-  const receivers = [
-    {
-      email: email, // Add the recipient's email address here
-    },
-  ];
+    const id = uuidv4();
+    await ForgotPasswordRequests.create({ id, userId: user.id });
 
-  console.log("receivers array: ", receivers);
-  const emailData = {
-    sender,
-    to: receivers,
-    subject: "Reset Password Request", // Add your email subject here
-    htmlContent: `
-      <h3>reset ur password here</h3>
-      <a href='/password/resetpassword'>Link</a>
+    const sender = {
+      email: "pabbathisreevalli1705@gmail.com",
+    };
+
+    const receivers = [
+      {
+        email: email, // Add the recipient's email address here
+      },
+    ];
+
+    console.log("receivers array: ", receivers);
+    const emailData = {
+      sender,
+      to: receivers,
+      subject: "Reset Password Request", // Add your email subject here
+      htmlContent: `
+      <h3>Reset ur password here:</h3>
+      <a href='http://localhost:3000/password/resetpassword/${id}'>Link</a>
     `,
-  };
+    };
 
-  // Make the request to Sendinblue API
-  tranEmailApi
-    .sendTransacEmail(emailData)
-    .then((response) => {
-      console.log("Email sent successfully:", response);
-      res
-        .status(200)
-        .json({ success: true, message: "Email sent successfully" });
-    })
-    .catch((error) => {
-      console.log("Error sending email:", error);
-      res.status(500).json({ success: false, error: "Internal server error" });
+    // Make the request to Sendinblue API
+    tranEmailApi
+      .sendTransacEmail(emailData)
+      .then((response) => {
+        console.log("Email sent successfully:", response);
+        res
+          .status(200)
+          .json({ success: true, message: "Email sent successfully" });
+      })
+      .catch((error) => {
+        console.log("Error sending email:", error);
+        res
+          .status(500)
+          .json({ success: false, error: "Internal server error" });
+      });
+  } catch (error) {
+    console.log("errro sending password reset email", error);
+    return res.status(500).json({ error: "internal server error" });
+  }
+});
+
+app.get("/password/resetpassword/:id", async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const request = await ForgotPasswordRequests.findOne({
+      where: { id },
     });
+    if (!request) {
+      return res.status(404).json({ message: "invalid or expired reset link" });
+    }
+    res.send(`
+    <h3>Reset your Password:</h3>
+    <form action='/password/resetpassword/${id}' method='POST'>
+      <label for='newPassword'>Enter new Password:</label>
+      <input type='password' name='newPassword' id='newPassword' required>
+      <button type='submit'>Reset</button>
+    </form>
+    `);
+  } catch (err) {
+    console.log("error resetting password: ", err);
+    return res.status(500).json({ error: "internal server error" });
+  }
 });
 
-app.get("/password/resetpassword", (req, res, next) => {
-  res.send(`
-    <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-</head>
-<body>
-    <h3>Reset your Password</h3><br>
-    <label for="password">New Password:</label>
-    <input type="password" name="password" id="password" required>
-</body>
-</html>
-  `);
+app.post("/password/resetpassword/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const request = await ForgotPasswordRequests.findOne({
+      where: { id },
+    });
+    if (!request) {
+      return res.status(404).json({ message: "Invalid or expired reset link" });
+    }
+
+    const { newPassword } = req.body;
+    const saltRounds = 10;
+
+    bcrypt.genSalt(saltRounds, async (err, salt) => {
+      if (err) {
+        console.error("Error generating salt:", err);
+        return res.status(500).json({ message: "Unable to reset password" });
+      }
+
+      console.log("Salt:", salt);
+
+      // Extract the new password from the request body
+      const { newPassword } = req.body;
+      console.log("new password>>>:  ", newPassword);
+      bcrypt.hash(newPassword, salt, async (err, hashedPassword) => {
+        if (err) {
+          console.error("Error hashing password:", err);
+          return res.status(500).json({ message: "Unable to reset password" });
+        }
+
+        console.log("Hashed Password:", hashedPassword);
+
+        // Update user's password in the User table
+        const user = await User.findByPk(request.userId);
+        user.password = hashedPassword;
+        await user.save();
+
+        // Delete the forgot password request
+        await request.destroy();
+
+        return res.redirect("/user/login");
+      });
+    });
+  } catch (error) {
+    console.error("Error resetting password:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
 });
+
 app.get("/expense/addexpense", (req, res, next) => {
   res.send(`<!DOCTYPE html>
   <html lang="en">
@@ -497,6 +568,9 @@ Expense.belongsTo(User);
 
 User.hasMany(Order);
 Order.belongsTo(User);
+
+User.hasMany(ForgotPasswordRequests);
+ForgotPasswordRequests.belongsTo(User);
 sequelize
   .sync()
   .then(() => {
