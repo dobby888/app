@@ -2,6 +2,7 @@ const path = require("path");
 const express = require("express");
 var cors = require("cors");
 const sequelize = require("./util/database");
+const bodyParser = require("body-parser");
 const User = require("./models/users");
 const Expense = require("./models/expenses");
 const Order = require("./models/orders");
@@ -19,14 +20,15 @@ const Razorpay = require("razorpay");
 const Sib = require("sib-api-v3-sdk");
 const client = Sib.ApiClient.instance;
 const apiKey = client.authentications["api-key"];
-apiKey.apiKey = process.env.API_KEY;
+apiKey.apiKey =
+  "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";
 const tranEmailApi = new Sib.TransactionalEmailsApi();
 const { v4: uuidv4 } = require("uuid");
 const { json } = require("sequelize");
 
 dotenv.config();
 app.use(cors());
-// app.use(bodyParser.urlencoded());  ////this is for handling forms
+app.use(bodyParser.urlencoded({ extended: false }));
 app.use(express.json()); //this is for handling jsons
 app.use(express.static(path.join(__dirname, "public")));
 
@@ -292,14 +294,25 @@ app.get("/password/resetpassword/:id", async (req, res, next) => {
 app.post("/password/resetpassword/:id", async (req, res) => {
   try {
     const { id } = req.params;
+    console.log("id>>>>>>>", id);
     const request = await ForgotPasswordRequests.findOne({
       where: { id },
     });
+    console.log("request>>>>>>>>>>>", request);
+
     if (!request) {
       return res.status(404).json({ message: "Invalid or expired reset link" });
     }
 
+    // Extract the new password from the request body
     const { newPassword } = req.body;
+    console.log("new password::::", newPassword);
+    if (!newPassword) {
+      return res.status(400).json({ message: "New password is required" });
+    }
+
+    console.log("newpassword>>>>>>>>", newPassword);
+
     const saltRounds = 10;
 
     bcrypt.genSalt(saltRounds, async (err, salt) => {
@@ -308,11 +321,8 @@ app.post("/password/resetpassword/:id", async (req, res) => {
         return res.status(500).json({ message: "Unable to reset password" });
       }
 
-      console.log("Salt:", salt);
+      console.log("Salt>>>>>>", salt);
 
-      // Extract the new password from the request body
-      const { newPassword } = req.body;
-      console.log("new password>>>:  ", newPassword);
       bcrypt.hash(newPassword, salt, async (err, hashedPassword) => {
         if (err) {
           console.error("Error hashing password:", err);
