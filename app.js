@@ -12,6 +12,8 @@ const bcrypt = require("bcrypt");
 const userController = require("./controller/user");
 const app = express();
 const dotenv = require("dotenv");
+dotenv.config();
+
 // const userRoutes = require("./routes/user");
 // const expenseRoutes = require("./routes/expense");
 // const purchaseRoutes = require("./routes/purchase");
@@ -20,13 +22,11 @@ const Razorpay = require("razorpay");
 const Sib = require("sib-api-v3-sdk");
 const client = Sib.ApiClient.instance;
 const apiKey = client.authentications["api-key"];
-apiKey.apiKey =
-  "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";
+apiKey.apiKey = process.env.API_KEY;
 const tranEmailApi = new Sib.TransactionalEmailsApi();
 const { v4: uuidv4 } = require("uuid");
 const { json } = require("sequelize");
 
-dotenv.config();
 app.use(cors());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(express.json()); //this is for handling jsons
@@ -277,13 +277,30 @@ app.get("/password/resetpassword/:id", async (req, res, next) => {
     if (!request) {
       return res.status(404).json({ message: "invalid or expired reset link" });
     }
+    if (!request.isActive) {
+      return res.status(403).json({ message: "reset link is not active" });
+    }
+
+    request.isActive = false;
+    await request.save();
+
     res.send(`
+    <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
     <h3>Reset your Password:</h3>
     <form action='/password/resetpassword/${id}' method='POST'>
       <label for='newPassword'>Enter new Password:</label>
       <input type='password' name='newPassword' id='newPassword' required>
       <button type='submit'>Reset</button>
     </form>
+</body>
+</html>
     `);
   } catch (err) {
     console.log("error resetting password: ", err);
