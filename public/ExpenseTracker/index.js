@@ -151,7 +151,8 @@ document.getElementById("rzp-button1").onclick = async function (e) {
         );
 
         alert("You are a premium user now");
-        showPremiumMsg();
+        // showPremiumMsg();
+        window.location.href = "/premium/premiumHomePage";
 
         localStorage.setItem("token", updateTransactionResponse.data.token);
         console.log("new token:", updateTransactionResponse.data.token);

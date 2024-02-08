@@ -8,7 +8,10 @@ const ForgotPasswordRequests = sequelize.define("forgotPasswordRequest", {
     allowNull: false,
     primaryKey: true,
   },
-  isActive: Sequelize.BOOLEAN,
+  isActive: {
+    type: Sequelize.BOOLEAN,
+    defaultValue: true,
+  },
 });
 
 module.exports = ForgotPasswordRequests;
