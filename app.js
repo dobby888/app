@@ -13,7 +13,7 @@ const userController = require("./controller/user");
 const app = express();
 const dotenv = require("dotenv");
 dotenv.config();
-
+let pdf = [];
 // const userRoutes = require("./routes/user");
 // const expenseRoutes = require("./routes/expense");
 // const purchaseRoutes = require("./routes/purchase");
